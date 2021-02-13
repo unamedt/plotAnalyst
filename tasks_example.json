@@ -1,0 +1,77 @@
+[
+  {
+    "filename": "m4.dpt",
+    "name":"m4.dpt",
+    "format":{
+      "skip_strings":1, 
+      "string":"x y"
+    },
+    "tasks": [
+      {
+        "normalise":{
+          "min": 0.0,
+          "max": 100.0,
+          "axis": "Y"
+        }
+      },
+      {
+        "find peaks advanced":{
+          "minimal der 2": 0.0,
+          "minimal peak width": 0
+        }
+      },
+      {
+        "plot": {
+          "color":"blue",
+          "style":"markers",
+          "showlegend": true,
+          "X_shift":0,
+          "Y_shift":0
+        }
+      }
+      
+    ]
+
+  },
+  {
+    "filename": "example_data_series.txt",
+    "name":"test",
+    "format":{
+      "skip_strings":2, 
+      "string":"x y"
+    },
+    "tasks": [
+      {
+        "sort":{
+          "axis":"Y",
+          "direction":"down"
+        }
+      },
+      {
+        "cut":{
+          "axis":"X",
+          "left":0.0,
+          "right":5.0
+        }
+      },
+      {
+        "normalise":{
+          "min": 1.0,
+          "max": 0.0,
+          "axis": "Y"
+        }
+      },
+      {
+        "plot": {
+          "color":"red",
+          "style":"markers",
+          "showlegend": true,
+          "X_shift":0,
+          "Y_shift":0
+        }
+      }
+      
+    ]
+
+  }
+]
