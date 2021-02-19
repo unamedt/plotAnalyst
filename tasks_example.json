@@ -16,8 +16,25 @@
       },
       {
         "find peaks advanced":{
-          "minimal der 2": 0.0,
-          "minimal peak width": 0
+          "minimal level": 5.5,
+          "minimal level sign": "+",
+          "minimal level sign": "'-', '+'",
+          "minimal peak width": 0,
+          "minimal level trigger":"'der1', 'der2', 'int1', 'int2', 'X', 'Y', 'peakX', 'peakY', 'width'",
+          "minimal level trigger": "width",
+          "axis1":"X",
+          "axis2":"Y",
+          "result peak type":"'der1', 'der2', 'int1', 'int2', 'X', 'Y', 'peakX', 'peakY', 'width'",
+          "result peak type":"width",
+          "result peak function": "'min', 'max' ignored if in 'result peak type' is not 'der2', 'der1', 'int1', 'int2', 'X', 'Y'",
+          "result peak function":"min",
+          "peaks tasks":[{
+            "plot":{
+              "color":"red",
+              "style":"markers",
+              "showlegend": true
+            }
+          }]
         }
       },
       {
