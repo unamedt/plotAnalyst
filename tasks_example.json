@@ -1,6 +1,6 @@
 [
   {
-    "filename": "m4.dpt",
+    "filename": "m4.ASC",
     "name":"m4.dpt",
     "format":{
       "skip_strings":1, 
@@ -12,6 +12,57 @@
           "min": 0.0,
           "max": 100.0,
           "axis": "Y"
+        }
+      },
+      {
+        "find peaks trivial":{
+          "axis1":"X",
+          "axis2":"Y",
+          "trigger value": 2.5,
+          "trigger type": "'absolute', 'relative'",
+          "trigger type": "relative",
+          "trigger sign": "'+', '-'",
+          "trigger sign": "+",
+          "trigger function": "'median', 'average'",
+          "trigger function": "median",
+          "trigger function window": 500,
+          "trigger function tune": "reserved for future use",
+          "minimal peak width": 0.02,
+          "minimal gap between peaks": 0.02,
+          "apex function axis1":"'center', 'left', 'right', 'median', 'apex location'",
+          "apex function axis1":"apex location",
+          "apex function axis2":"'max', 'median', 'min', 'max', 'width', 'center'",
+          "apex function axis2":"max",
+          "apexes tasks":[{
+            "plot":{
+              "color":"red",
+              "style":"markers",
+              "showlegend": true
+            }
+          }],
+          "peaks tasks":[{
+            "plot":{
+              "color":"blue",
+              "style":"markers",
+              "showlegend": true
+            }
+          }],
+          "level tasks":[{
+            "plot":{
+              "color":"green",
+              "style":"markers",
+              "showlegend": true
+            }
+          }]
+        }
+      },
+      {
+        "plot": {
+          "color":"black",
+          "style":"markers",
+          "showlegend": true,
+          "X_shift":0,
+          "Y_shift":0
         }
       },
       {
@@ -30,20 +81,11 @@
           "result peak function":"min",
           "peaks tasks":[{
             "plot":{
-              "color":"red",
+              "color":"cyan",
               "style":"markers",
               "showlegend": true
             }
           }]
-        }
-      },
-      {
-        "plot": {
-          "color":"blue",
-          "style":"markers",
-          "showlegend": true,
-          "X_shift":0,
-          "Y_shift":0
         }
       }
       
