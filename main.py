@@ -203,11 +203,11 @@ def integrate(series, axis1, axis2, noShift=False):
   #print("stop integrate debug======================")
   return result
 
-def FindPeaksAdvanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2Tasks=[], int2Tasks=[], int1Tasks=[],  level=0.0, levelSign="+", levelType="peakY",  minWidth=0, axis2Type="Y", axis2Value='min'):
+def find_peaks_advanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2Tasks=[], int2Tasks=[], int1Tasks=[],  level=0.0, levelSign="+", levelType="peakY",  minWidth=0, axis2Type="Y", axis2Value='min'):
   #philosophy: peak-searching functions should generate a "series" dictionary with it`s own task set. Tasks for new "series" should be given in taskFile. New "series" should be appended to a "dataset"
-  peaks = {"axes":series["axes"], "tasks":peaksTasks, "name":(series["name"]+"peaks")}
-  series[axis1] = series[axis1]
-  series[axis2] = series[axis2]
+  peaks = {"axes":series["axes"], "tasks":peaksTasks, "name":(series["name"]+"_advanced_peaks")}
+  series[axis1] = series[axis1] #TODO: what does this line?
+  series[axis2] = series[axis2] #TODO: what does this line?
   der1 = derivative(series, axis1, axis2)
   der1.update({"axes":series["axes"], "tasks":der1Tasks, "name":(series["name"] + "_der1")})
   der2 = derivative(der1,  axis1, axis2)
@@ -324,12 +324,12 @@ def FindPeaksAdvanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2Tas
       peaks["peaks"].pop(i)
     else:
       i += 1
-    print(i, len(peaks["peaks"]))
+    #print(i, len(peaks["peaks"]))
   del i
 
-  resultPeaks = {axis1:[], axis2:[], "name":series["name"]+ "_peaks", "tasks":peaksTasks}
+  resultPeaks = {axis1:[], axis2:[], "name":series["name"]+ "_trivial_peaks", "tasks":peaksTasks}
   for peak in peaks["peaks"]:
-    print(peak)
+    #print(peak)
     resultPeaks[axis1].append(peak["peakX"])
     if axis2Type in ("der2", "der1", "int1", "int2", "X", "Y"):
       if axis2Value == "min":
@@ -340,7 +340,208 @@ def FindPeaksAdvanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2Tas
       resultPeaks[axis2].append(peak[axis2Type])
 
   return (resultPeaks, der1, der2)
-        
+
+#def sliding_median() #optimisation hack: this function should use buffer in a default argument value: buff=[]
+
+def median(array):
+  tmp = array.copy()
+  tmp.sort()
+  length = len(tmp)
+  #print(length//2, length%2)
+  if length%2:
+    result = tmp[length//2]
+  else:
+    result = tmp[(length - 1)//2] + (tmp[length//2] - tmp[(length - 1)//2])/2
+  del tmp
+  return result
+
+def average(array):
+  accumulator = 0.0
+  for value in array:
+    accumulator += value
+  return accumulator/(len(array))
+
+def nearest(array, item):
+  """This function returns object in array nearest to item
+  """
+  if len(array) == 1:
+    return array[0]
+  tmp = array.copy()
+  tmp.sort()
+  itemPrev = tmp[0]
+  for itemCurr in tmp[1:]:
+    deltaPrev = abs(item - itemPrev)
+    deltaCurr = abs(item - itemCurr)
+    if deltaCurr > deltaPrev:
+      resut = itemPrev
+      del array
+      return result
+  
+  result = tmp[-1]
+  del array
+  return result
+
+
+def find_peaks_trivial(series, axis1, axis2, apexesTasks=[], peaksTasks=[], levelTasks=[], triggerValue=0.0, triggerType="absolute", triggerSign="+", triggerFunction="median", triggerFunctionWindow=100, triggerFunctionTune=0.0, minimalWidth=1.0, minimalGap=1.0, apexFunctionAxis1="center", apexFunctionAxis2="max"):
+  '''How this function works:
+  1)for every point it calculates some levelFunction
+  2)if this point is higher than level -- it adds to a peaks array
+  3)peaks array is filtered and splitted to a number of single peaks
+  4)each peak is processed to calculate it`s apex
+  '''
+  #init
+  print("find_peaks_trivial debug start ================================")
+
+  X = series[axis1]
+  F = series[axis2]
+  L = [] #array of level points
+  peaksPossible = {"X":[], "F":[]} #array of all points possibly included peaks
+  peaks = [] #array of peaks {"X":[], "F":[], "apexX":0.0, "apexY":0.0} 
+
+  #verifications
+  if triggerFunctionWindow + 1 >= len(X):
+    triggerFunctionWindow = len(X) - 1
+
+  #choise of desired levelFunction
+
+  for I in range(len(X)): #I is general iterator here
+    #choose windows
+    #approximation: if part of the window protrudes from a possible data series -- protruding part is filled by a mirrored part of data series from this side
+    halfWindowWidth = int(triggerFunctionWindow/2)
+    xWindow = []
+    fWindow = []
+    leftI = I - halfWindowWidth
+    rightI = I + halfWindowWidth
+    if leftI < 0:
+      xWindow = X[abs(leftI) - 1:: -1]
+      fWindow = F[abs(leftI) - 1:: -1]
+      xWindow.extend(X[:I])
+      fWindow.extend(F[:I])
+    else:
+      xWindow.extend(X[leftI:I])
+      fWindow.extend(F[leftI:I])
+
+    if rightI > len(X):
+      xWindow.extend(X[I:])
+      fWindow.extend(F[I:])
+      xWindow.extend(X[: len(X) -1 - (rightI - len(X)) :-1])
+      fWindow.extend(F[: len(F) -1 - (rightI - len(F)) :-1])
+    else:
+      xWindow.extend(X[I:rightI])
+      fWindow.extend(F[I:rightI])
+    x = X[I]
+    f = F[I]
+     
+    if len(fWindow) != triggerFunctionWindow:
+      print("len(fWindow):",len(fWindow))
+      print(leftI, rightI)
+  
+    if triggerFunction == "median":
+      level = median(fWindow)
+    elif triggerFunction == "average":
+      level = average(fWindow)
+    
+
+    L.append(level)
+    if triggerType == "absolute":
+      if triggerSign == "+":
+        if f >= level + triggerValue:
+          peaksPossible["X"].append(x)
+          peaksPossible["F"].append(f)
+      else:
+        if f <= level - triggerValue:
+          peaksPossible["X"].append(x)
+          peaksPossible["F"].append(f)
+    
+    if triggerType == "relative":
+      if triggerSign == "+":
+        if f >= level*triggerValue:
+          peaksPossible["X"].append(x)
+          peaksPossible["F"].append(f)
+      else:
+        if f <= level*triggerValue:
+          peaksPossible["X"].append(x)
+          peaksPossible["F"].append(f)
+
+  #filter and split peaks array to single peaks
+  #It is a state machine.
+  #peaksPossible = {"X":[], "F":[]} #array of all points possibly included peaks
+  #peaks = [] #array of peaks {"X":[], "F":[], "apexX":0.0, "apexY":0.0} 
+  
+  #peak sides:
+  leftI = 0
+  rightI = 0
+  
+  peakStarted = False
+  peakStopped = False
+
+  for I in range(1, len(peaksPossible["F"])): #I is main iterator here
+    x = peaksPossible["X"][I]
+    dx = peaksPossible["X"][I] - peaksPossible["X"][I - 1]
+    if not peakStarted:
+      leftI = I
+      peakStarted = True
+    if dx > minimalGap:
+      rightI = I
+      peakStopped = True
+    if x - peaksPossible["X"][leftI] < minimalWidth:
+      peakStopped = False
+
+    if peakStopped:
+      peaks.append({"X":peaksPossible["X"][leftI:rightI], "F":peaksPossible["F"][leftI:rightI]})
+      peakStopped = False
+      peakStarted = False
+
+  #find the apex location
+  for I in range(len(peaks)):
+    peak = peaks[I]
+    tmpX = peak["X"]
+    tmpF = peak["F"]
+    
+    if apexFunctionAxis2 == "median":
+      tmp2F = F.copy()
+      tmp2F.sort()
+      apexF = tmp2F[int(len(tmp2F)/2)]
+    elif apexFunctionAxis2 == "min":
+      apexF = min(tmpF)
+    elif apexFunctionAxis2 == "max":
+      apexF = max(tmpF)
+    elif apexFunctionAxis2 == "width":
+      apexF = tmpX[-1] - tmpX[0]
+    else: # apexFunctionAxis2 == "center":
+      apexF = tmpF[0] + (tmpF[-1] - tmpF[0])/2
+
+
+    if apexFunctionAxis1 == "apex location":
+      apexX = tmpX[tmpF.index(nearest(tmpF, apexF))]
+    elif apexFunctionAxis1 == "median":
+      tmp2X = tmpX.copy()
+      tmp2X.sort()
+      apexX = tmp2X[int(len(tmp2X)/2)]
+    elif apexFunctionAxis1 == "left":
+      apexX = tmpX[0]
+    elif apexFunctionAxis1 == "right":
+      apexX = tmpX[-1]
+    else:# apexFunctionAxis1 == "center":
+      apexX = tmpX[0] + (tmpX[-1] - tmpX[0])/2
+
+
+    peak["apexX"] = apexX
+    peak["apexF"] = apexF
+    peaks[I] = peak
+  
+  apexes = { axis1:[], axis2:[],"axes":series["axes"], "tasks":apexesTasks, "name":(series["name"]+"_apexes")}
+  levels = {axis1:X, axis2:L, "axes":series["axes"], "tasks": levelTasks, "name":(series["name"]+"_level")}
+  peaksResult = {axis1:peaksPossible["X"], axis2:peaksPossible["F"], "axes":series["axes"], "tasks": peaksTasks, "name":(series["name"]+"_peaks")}
+  
+  for peak in peaks:
+    apexes[axis1].append(peak["apexX"])
+    apexes[axis2].append(peak["apexF"])
+  
+  print("find_peaks_trivial debug stop  ================================")
+  return (levels, peaksResult, apexes)
+
+
 
 
 def main():
@@ -369,10 +570,10 @@ def main():
         dataset[sIndex] = sort(series, task["sort"]["axis"], task["sort"]["direction"])
       elif "cut" in task:
         dataset[sIndex] = cut(series, task["cut"]["axis"], task["cut"]["left"], task["cut"]["right"])
-      elif "find peaks advanced" in task:
+      elif "1find peaks advanced" in task: #this line is broken. Delete first '1' in a string
         tmpTask = task["find peaks advanced"]
   #def FindPeaksAdvanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2Tasks=[], int2Tasks=[], int1Tasks=[],  level=0.0, levelSign="+", levelType="peakY",  minWidth=0):
-        dataset.extend(FindPeaksAdvanced(
+        dataset.extend(find_peaks_advanced(
                                           series, 
                                           axis1=tmpTask["axis1"], 
                                           axis2=tmpTask["axis2"], 
@@ -388,6 +589,26 @@ def main():
                                           axis2Type=tmpTask["result peak type"],
                                           axis2Value=tmpTask["result peak function"]
                                         ))
+      elif "find peaks trivial" in task:
+        tmpTask = task['find peaks trivial']
+        dataset.extend(find_peaks_trivial(
+                                              series, 
+                                              axis1=tmpTask["axis1"], 
+                                              axis2=tmpTask["axis2"],
+                                              apexesTasks=tmpTask["apexes tasks"], 
+                                              peaksTasks=tmpTask["peaks tasks"], 
+                                              levelTasks=tmpTask["level tasks"],
+                                              triggerValue=tmpTask["trigger value"], 
+                                              triggerType=tmpTask["trigger type"], 
+                                              triggerSign=tmpTask["trigger sign"],
+                                              triggerFunction=tmpTask["trigger function"], 
+                                              triggerFunctionWindow=tmpTask["trigger function window"], 
+                                              triggerFunctionTune=tmpTask["trigger function tune"], 
+                                              minimalWidth=tmpTask["minimal peak width"],
+                                              minimalGap=tmpTask["minimal gap between peaks"],
+                                              apexFunctionAxis1=tmpTask["apex function axis1"],
+                                              apexFunctionAxis2=tmpTask["apex function axis2"]
+                                            ))
       elif "plot" in task:
         plot(chart, series, task)
   chart.show()
@@ -396,5 +617,8 @@ def main():
 
 main()
 
-#TODO: add checking of incoming json config. All missed fields should be filled by default values.
+#TODO: add checking of incoming json config. All missed fields should be filled by default values. User should be warned of all invalid fields.
 #TODO: add immutability of incoming data to every function
+
+
+exit()
