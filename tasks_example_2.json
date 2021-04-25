@@ -1,0 +1,190 @@
+[
+  {
+    "filename": "m4.ASC",
+    "name":"m4.ASC",
+    "format":{
+      "skip_strings":1, 
+      "string":"x y"
+    },
+    "tasks": [
+      {
+        "normalise":{
+          "min": 0.0,
+          "max": 100.0,
+          "axis": "Y"
+        }
+      },
+      {
+        "find peaks trivial":{
+          "axis1":"X",
+          "axis2":"Y",
+          "trigger value": 2.5,
+          "trigger type": "'absolute', 'relative'",
+          "trigger type": "relative",
+          "trigger sign": "'+', '-'",
+          "trigger sign": "+",
+          "trigger function": "'median', 'average'",
+          "trigger function": "median",
+          "trigger function window": 500,
+          "trigger function tune": "reserved for future use",
+          "minimal peak width": 0.02,
+          "minimal gap between peaks": 0.02,
+          "apex function axis1":"'center', 'left', 'right', 'median', 'apex location'",
+          "apex function axis1":"apex location",
+          "apex function axis2":"'max', 'median', 'min', 'max', 'width', 'center'",
+          "apex function axis2":"max",
+          "apexes tasks":[{
+          
+            "dump":{
+              "file name":"m4_apexes0.ASC",
+              "format":"X Y"
+            }
+          },
+          {
+            "plot":{
+              "color":"grey",
+              "style":"markers",
+              "showlegend": true
+            }
+          },
+          {
+            "compare_points":{
+              "series axis1":"X",
+              "series axis2":"Y",
+              "points name":"dots2",
+              "points axis1":"X",
+              "points axis2":"Y",
+              "axis1 scope": 0.5,
+              "axis2 scope": 0.5,
+              "main points": true,
+              "multiple points": true,
+              "sticky points": false,
+              "result tasks":[{
+                "plot":{
+                  "color":"cyan",
+                  "style":"markers",
+                  "showlegend":true,
+                  "marker":{
+                    "color":"cyan",
+                    "size":5,
+                    "color2":"red",
+                    "line width":1,
+                    "symbol":"cross"
+                  }
+                }
+              }]
+            }
+          }
+          ],
+          "peaks tasks":[{
+          }],
+          "level tasks":[{
+          }]
+        }
+      }
+    ]
+
+  },
+  {
+    "filename": "m4_apexes2.ASC",
+    "name":"dots2",
+    "format":{
+      "skip_strings":1,
+      "string":"x y"
+    },
+    "tasks": [
+      {
+        "plot": {
+          "color":"blue",
+          "style":"markers",
+          "showlegend": true,
+          "X_shift":0,
+          "Y_shift":0,
+          "marker":{
+            "color":"blue",
+            "size":6,
+            "color2":"black",
+            "line width":1,
+            "symbol":"circle"
+          }
+        }
+      }
+
+    ]
+
+
+  },
+  {
+    "filename": "m4_apexes1.ASC",
+    "name":"dots1",
+    "format":{
+      "skip_strings":1,
+      "string":"x y"
+    },
+    "tasks": [
+      {
+        "plot": {
+          "color":"red",
+          "style":"markers",
+          "showlegend": true,
+          "X_shift":0,
+          "Y_shift":0,
+          "marker":{
+            "color":"red",
+            "size":6,
+            "color2":"black",
+            "line width":1,
+            "symbol":"circle"
+          }
+        }
+      }
+
+    ]
+
+
+  },
+  {
+    "chart settings":{
+      "title": "chart title",
+      "title font size": 30,
+      "title xanchor":"center",
+      "title yanchor":"top",
+      "title x":0.5,
+      "title y":0.95,
+      "font size":18,
+      "showlegend":true,
+      "xaxis title":"r'$'X,\\ shift,\\ (cm^{-1})$'",
+      "xaxis title font size":25,
+      "yaxis title":"r'$Y\\ shift,\\ (cm^{-1})$'",
+      "yaxis title font size":25,
+      "chart autosize":false,
+      "chart width":1000,
+      "chart height":750,
+      "plot background":"#FFF",
+      "margins":{
+        "l":50,
+        "r":50,
+        "b":10,
+        "t":5,
+        "pad":4
+      },
+      "xaxis showline":true,
+      "xaxis line width":1,
+      "xaxis line color":"black",
+      "xaxis ticks location":"outside",
+      "xaxis color":"#000",
+      "yaxis showline":true,
+      "yaxis line width":1,
+      "yaxis line color":"black",
+      "yaxis ticks location":"outside",
+      "yaxis color":"#000",
+      "legend yanchor":"top",
+      "legend y":1.00,
+      "legend xanchor":"right",
+      "legend x":1.25
+    }
+  }
+]
+
+
+
