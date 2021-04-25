@@ -758,8 +758,8 @@ def dump_to_file(series, fileName, lineFormat="x y"):
     for i in range(min([len(row) for row in dataRows])):
       line = ''
       for row in dataRows:
-        line += str(row[i] + round((random.random() - random.random()), 10)) #outputs noizy data for some fun
-        #line += str(row[i])
+        #line += str(row[i] + round((random.random() - random.random()), 10)) #outputs noizy data for some fun
+        line += str(row[i])
         line += ' '
       line += '\n'
       f.write(line)
