@@ -2,7 +2,9 @@
 import json
 import plotly.graph_objs as go
 from sys import argv
-from math import exp, log
+from math import exp, log, sin, cos, pi
+import random
+import os
 
 
 
@@ -18,7 +20,22 @@ def plot(chart, series, settings):
     if plotSettings["Y_shift"] != 0.0:
       for i in range(len(series["Y"])):
         series["Y"][i] += plotSettings["Y_shift"]
-  chart.add_trace(go.Scatter(x=series["X"], y=series["Y"], name=series["name"], showlegend=plotSettings["showlegend"], mode=plotSettings["style"], line={"color":plotSettings["color"]}))
+  if "marker" in plotSettings:
+    markerSets = plotSettings["marker"]
+    chart.add_trace(go.Scatter(x=series["X"],
+                               y=series["Y"], 
+                               name=series["name"], 
+                               showlegend=plotSettings["showlegend"], 
+                               mode=plotSettings["style"], 
+                               marker_symbol=markerSets["symbol"], 
+                               marker= {"color":markerSets["color"], 
+                                        "size":markerSets["size"], 
+                                        "line":{"color":markerSets["color2"], 
+                                                "width":markerSets["line width"]
+                                                }
+                                        }))
+  else:
+    chart.add_trace(go.Scatter(x=series["X"], y=series["Y"], name=series["name"], showlegend=plotSettings["showlegend"], mode=plotSettings["style"], line={"color":plotSettings["color"]}))
 
 def file_import(filename, fileFormat, attrs):
   buff = {"X":[], "Y":[]}
@@ -541,6 +558,240 @@ def find_peaks_trivial(series, axis1, axis2, apexesTasks=[], peaksTasks=[], leve
   print("find_peaks_trivial debug stop  ================================")
   return (levels, peaksResult, apexes)
 
+def chart_style(chart, style):
+  chart.update_layout(
+    title_font_size=style["title font size"],
+    title=style["title"],
+    title_xanchor=style["title xanchor"],
+    title_yanchor=style["title yanchor"],
+    title_x=style["title x"],
+    title_y=style["title y"],
+    font_size=style["font size"],
+    showlegend=style["showlegend"],
+    xaxis_title=style["xaxis title"],
+    xaxis_title_font_size=style["xaxis title font size"],
+    yaxis_title=style["yaxis title"],
+    yaxis_title_font_size=style["yaxis title font size"],
+    autosize=style["chart autosize"],
+    width=style["chart width"],
+    height=style["chart height"],
+    plot_bgcolor=style["plot background"],
+    margin=style["margins"],
+    xaxis={
+      "showline":style["xaxis showline"],
+      "linewidth":style["xaxis line width"],
+      "linecolor":style["xaxis line color"],
+      "ticks":style["xaxis ticks location"],
+      "color":style["xaxis color"]
+    },
+    yaxis={
+      "showline":style["xaxis showline"],
+      "linewidth":style["xaxis line width"],
+      "linecolor":style["xaxis line color"],
+      "ticks":style["xaxis ticks location"],
+      "color":style["xaxis color"]
+    },
+    legend={
+      "yanchor":style["legend yanchor"],
+      "y":style["legend y"],
+      "xanchor":style["legend xanchor"],
+      "x":style["legend x"]
+    }
+  )
+
+
+def annotate(toAnnotate, series, axis1, axis2, text="X", color="black" , angle=0, fontSize=10, aX=0, aY=10):
+  for x, y, text in zip(series[axis1], series[axis2], series[text]):
+    toAnnotate["X"].append(x)
+    toAnnotate["Y"].append(y)
+    toAnnotate["color"].append(color)
+    toAnnotate["angle"].append(angle)
+    toAnnotate["font size"].append(fontSize)
+    toAnnotate["text"].append(str(round(text, 1)))
+    #toAnnotate["text"].append("adfgqws")
+    toAnnotate["aX"].append(aX)
+    toAnnotate["aY"].append(aY)
+  return toAnnotate
+
+
+def annotations_apply(chart, signs):
+  #print("annotations_apply debug start ==================================")
+  annotations = []
+
+  for x, y, text, color, fontSize, ax, ay, angle in zip(signs["X"], signs["Y"], signs["text"], signs["color"], signs["font size"], signs["aX"], signs["aY"], signs["angle"]):
+    annotation = {}
+    annotation["font"] = {"size":fontSize, "color":color}
+    annotation["arrowcolor"] = color
+    annotation["text"] = text
+    annotation["textangle"] = angle
+    annotation["x"] = x
+    annotation["y"] = y
+    annotation["ax"] = ax
+    annotation["ay"] = -1*ay
+    annotation["xanchor"] = "left"
+    annotations.append(annotation)
+
+  annotations.sort(key=lambda a: a["x"], reverse=True)
+
+  #a magic constant to bind plot "points" to pixels
+  A = 5.0
+  #another magic constant to bind font size points to pixels
+  B = 5
+
+  firstLabel = True
+  for I in range(1, len(annotations)):
+    ann = annotations[I]
+    prevAnn = annotations[I - 1]
+    dX = prevAnn["x"] - ann["x"]
+    prevY = prevAnn["y"]
+    prevaY = prevAnn["ay"]
+    Y = ann["y"]
+    #calculate the height of the text fields + gap between them
+    textH = 2 + (ann["font"]["size"]* ann["text"].count("<br>") + prevAnn["font"]["size"]* prevAnn["text"].count("<br>"))/2
+    
+    #calculate a value to move upwards current label
+    shiftY = -1*(prevY*A + -1*prevaY + B*textH/cos(ann["textangle"]*pi/180) - B*dX*sin(ann["textangle"]*pi/180) - Y*A)
+    #print(dX*A, (1/2) * ann["font"]["size"] * cos(ann["textangle"]*pi/180) * max([len(substr) for substr in ann["text"].split("<br>")]))
+    #first condition: check if it is nessesary to apply any shifts
+    #last condition: check if a distance between current and previous label is big enough to contain current label without any vertical shifts
+    if ((shiftY < ann["ay"]) and (dX*A < ((1/2) * ann["font"]["size"] * cos(ann["textangle"]*pi/180) * max([len(substr) for substr in ann["text"].split("<br>")])))):
+      annotations[I]["ay"] = shiftY
+  for ann in annotations:
+    chart.add_annotation(ann)
+    #print(ann)
+  #print("annotations_apply debug stop  ==================================")
+  return chart
+
+def compare_apexes(series, pointsInc, seriesAxis1="X", seriesAxis2="Y", pointsAxis1="X", pointsAxis2="Y", axis1B=-1, axis2B=1.0, resultTasks=[], mainPoints=False, multiPointing=False, stickyPoints=False):
+  """compares(overlaps) two incoming data series"""
+  print("compare_apexes debug start=================================")
+  #print("pointsInc")
+  #print(pointsInc)
+  result = {seriesAxis1:[], seriesAxis2:[]}
+ 
+  roundFactor = 3
+  apexesX = [round(value, roundFactor) for value in series[seriesAxis1]]
+  apexesY = [round(value, roundFactor) for value in series[seriesAxis2]]
+  pointsX = [round(value, roundFactor) for value in pointsInc[pointsAxis1]]
+  pointsY = [round(value, roundFactor) for value in pointsInc[pointsAxis2]]
+  
+  points = [(x,y) for x,y in zip(pointsX, pointsY)]
+  apexes = [(x,y) for x,y in zip(apexesX, apexesY)]
+
+  apexMapping = {} #map apex to points
+  
+  for apex in apexes:
+    for point in points:
+      if ((axis1B > abs(apex[0] - point[0])) and (axis2B > abs(apex[1] - point[1]))):
+        print(apex, point, axis1B, abs(round(apex[0] - point[0], 3)), axis2B, abs(round(apex[1] - point[1], 3)), "------------------")
+        if apex in apexMapping:
+          apexMapping[apex].append(point)
+        else:
+          apexMapping[apex] = [point]
+      else:
+        print(apex, point, axis1B, abs(round(apex[0] - point[0], 3)), axis2B, abs(round(apex[1] - point[1], 3)))
+
+  
+  
+  
+  if not multiPointing:
+    for apex, points in apexMapping.items():
+      points.sort(key=lambda x: (abs(x[0] - apex[0]))) #sorts points by it`s distance to apex
+      nearestPoint = points[0]
+      apexMapping[apex] = nearestPoint
+
+  if stickyPoints:
+    for apex in apexMapping:
+      apexMapping[apex] = [apex]
+
+
+  if not ("marked" in series):
+    series["marked"] = [0 for item in apexes]
+  marked = series["marked"]
+
+  if mainPoints:
+    for i in range(len(marked)):
+      for apex in apexMapping:
+        if (apexesX[i], apexesY[i]) == apex:
+          series["marked"][i] -= 1
+  else:
+    for i in range(len(marked)):
+      if marked[i] < 0:
+        for apex in apexMapping:
+          if ((apexesX[i], apexesY[i]) == apex):
+            apexMapping.pop(apex)
+            break
+
+  for apex, point in apexMapping.items():
+    #print(apex, ":", point)
+    for p in point:
+      result[seriesAxis1].append(p[0])
+      result[seriesAxis2].append(p[1])
+
+  result["axes"] = [seriesAxis1, seriesAxis2]
+  result["tasks"] = resultTasks
+  result["name"] = series["name"] + "&" + pointsInc["name"] 
+
+  #print("result:")
+  #print(result)
+  print(series["marked"])
+  
+  print("compare_apexes debug stop =================================")
+  return series, pointsInc, result
+
+#TODO: rewrite line formatting to be more powerful
+def dump_to_file(series, fileName, lineFormat="x y"):
+  print("dumping", series["name"], "to", fileName)
+  try:
+    os.system("rm "+ fileName)
+  except Exception:
+    pass
+  with open(fileName, 'a') as f:
+    print("file opened")
+    f.write(series["name"])
+    f.write("\n")
+    lineFormat = lineFormat.upper()
+    lineFormat = lineFormat.split()
+    dataRows = []
+    for axis in lineFormat:
+      dataRows.append(series[axis])
+    for i in range(min([len(row) for row in dataRows])):
+      line = ''
+      for row in dataRows:
+        line += str(row[i] + round((random.random() - random.random()), 10)) #outputs noizy data for some fun
+        #line += str(row[i])
+        line += ' '
+      line += '\n'
+      f.write(line)
+  print("done")
+
+
+def plot_settings(settings):
+  types = {
+    "int":[],
+    "bool":[],
+    "float":[],
+    "str":[]
+  }
+  for t, fields in types.items():
+    for field in fields:
+      if field in settings:
+        if t == "int":
+          if not (type(settings[field]) is int):
+            path = "'chart settings/" + field + "'"
+            print("Config file error\n Please check type of section:", path, "it should be int(..., -1, 0, 1, ...)")
+        elif t == "bool":
+          if not (type(settings[field]) is bool):
+            path = "'chart settings/" + field + "'"
+            print("Config file error\n Please check type of section:", path, "it should be bool (true, false)")
+        elif t == "float":
+          if not (type(settings[field]) is float):
+            path = "'chart settings/" + field + "'"
+            print("Config file error\n Please check type of section:", path, "it should be float (..., -1, 0, 1, ..., -0.1, 0.0, 10.3, ...)")
+        elif t == "str":
+          if not (type(settings[field]) is str):
+            path = "'chart settings/" + field + "'"
+            print("Config file error\n Please check type of section:", path, 'it should be any string ("...")')
 
 
 
@@ -552,17 +803,24 @@ def main():
     return -1
   tasks = json.load(taskFile)
   taskFile.close()
+  tasks = tasks_check(tasks)
+
   #print(tasks)
   dataset = []
   for series in tasks:
-    dataset.append(file_import(series["filename"], series["format"], series))
+    if "chart settings" in series:
+      chartSettings = series
+    else:
+      dataset.append(file_import(series["filename"], series["format"], series))
   #print(dataset)
   chart = go.Figure()
+  labels = {"X":[], "Y":[], "color":[], "angle":[], "font size":[], "text":[], "aX":[], "aY":[]}
   for series in dataset:
     series["axes"] = ["X", "Y"] #TODO: add support of more than 2 axes
     sIndex = dataset.index(series)
     for task in series["tasks"]:
-      print(task)
+      #print("\n++++++++++++++++++++++++++++++++++++++++++++++++\n")
+      #print(task)
       #print(series)
       if "normalise" in task:
         dataset[sIndex] = normalise(series, task["normalise"]["axis"],task["normalise"]["min"], task["normalise"]["max"])
@@ -570,9 +828,8 @@ def main():
         dataset[sIndex] = sort(series, task["sort"]["axis"], task["sort"]["direction"])
       elif "cut" in task:
         dataset[sIndex] = cut(series, task["cut"]["axis"], task["cut"]["left"], task["cut"]["right"])
-      elif "1find peaks advanced" in task: #this line is broken. Delete first '1' in a string
+      elif "find peaks advanced" in task: #this line is broken. Delete first '1' in a string
         tmpTask = task["find peaks advanced"]
-  #def FindPeaksAdvanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2Tasks=[], int2Tasks=[], int1Tasks=[],  level=0.0, levelSign="+", levelType="peakY",  minWidth=0):
         dataset.extend(find_peaks_advanced(
                                           series, 
                                           axis1=tmpTask["axis1"], 
@@ -609,8 +866,50 @@ def main():
                                               apexFunctionAxis1=tmpTask["apex function axis1"],
                                               apexFunctionAxis2=tmpTask["apex function axis2"]
                                             ))
+      elif "annotate" in task:
+        tmpTask = task['annotate']
+        labels = annotate(
+                        labels, 
+                        series,
+                        axis1=tmpTask["axis1"], 
+                        axis2=tmpTask["axis2"],
+                        text=tmpTask["text"],
+                        color=tmpTask["color"],
+                        angle=tmpTask["label angle"],
+                        fontSize=tmpTask["font size"],
+                        aX=tmpTask["aX"],
+                        aY=tmpTask["aY"]
+                     )
+      elif "compare_points" in task:
+        tmpTask = task["compare_points"]
+        pointSeries = {"X":[], "Y":[], "name":'', "tasks":[]}
+        for ser in dataset:
+          if ser["name"] == tmpTask["points name"]:
+            pointSeries = ser
+        seriesNew, pointsNew, pointsOverlapped = compare_apexes(
+                      series, 
+                      pointsInc=pointSeries, 
+                      seriesAxis1=tmpTask["series axis1"], 
+                      seriesAxis2=tmpTask["series axis2"], 
+                      pointsAxis1=tmpTask["points axis1"], 
+                      pointsAxis2=tmpTask["points axis2"], 
+                      axis1B=float(tmpTask["axis1 scope"]), 
+                      axis2B=float(tmpTask["axis2 scope"]), 
+                      resultTasks=tmpTask["result tasks"],
+                      mainPoints=tmpTask["main points"],
+                      multiPointing=tmpTask["multiple points"],
+                      stickyPoints=tmpTask["sticky points"]
+                      )
+        dataset[sIndex] = seriesNew
+        #print(pointsOverlapped)
+        dataset.append(pointsOverlapped)
+      elif "dump" in task:
+        tmpTask = task["dump"]
+        dump_to_file(series, tmpTask["file name"], lineFormat=tmpTask["format"])
       elif "plot" in task:
         plot(chart, series, task)
+  chart = annotations_apply(chart, labels)
+  chart_style(chart, chartSettings["chart settings"])
   chart.show()
 
 
@@ -619,6 +918,10 @@ main()
 
 #TODO: add checking of incoming json config. All missed fields should be filled by default values. User should be warned of all invalid fields.
 #TODO: add immutability of incoming data to every function
-
+#TODO: add mark stacking function. For example: if there are many marks at some site, move up some of them
+#DONE: add symbol styling in "plot" function
+#TODO: add "delete" function. It should delete the given points from series.
+#TODO: add queue customisation in config (or smart queue manager). Now program may try to access unfinished/nonexisting "series"
+#TODO: add check for same namings of different series
 
 exit()
