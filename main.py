@@ -406,8 +406,7 @@ def find_peaks_trivial(series, axis1, axis2, apexesTasks=[], peaksTasks=[], leve
   3)peaks array is filtered and splitted to a number of single peaks
   4)each peak is processed to calculate it`s apex
   '''
-  #init
-  print("find_peaks_trivial debug start ================================")
+  #print("find_peaks_trivial debug start ================================")
 
   X = series[axis1]
   F = series[axis2]
@@ -450,8 +449,9 @@ def find_peaks_trivial(series, axis1, axis2, apexesTasks=[], peaksTasks=[], leve
     f = F[I]
      
     if len(fWindow) != triggerFunctionWindow:
-      print("len(fWindow):",len(fWindow))
-      print(leftI, rightI)
+      print('"find peaks trivial" alert')
+      print("\tlen(fWindow):",len(fWindow))
+      print("\t from", leftI, "to", rightI)
   
     if triggerFunction == "median":
       level = median(fWindow)
@@ -555,7 +555,7 @@ def find_peaks_trivial(series, axis1, axis2, apexesTasks=[], peaksTasks=[], leve
     apexes[axis1].append(peak["apexX"])
     apexes[axis2].append(peak["apexF"])
   
-  print("find_peaks_trivial debug stop  ================================")
+  #print("find_peaks_trivial debug stop  ================================")
   return (levels, peaksResult, apexes)
 
 def chart_style(chart, style):
@@ -664,7 +664,7 @@ def annotations_apply(chart, signs):
 
 def compare_apexes(series, pointsInc, seriesAxis1="X", seriesAxis2="Y", pointsAxis1="X", pointsAxis2="Y", axis1B=-1, axis2B=1.0, resultTasks=[], mainPoints=False, multiPointing=False, stickyPoints=False):
   """compares(overlaps) two incoming data series"""
-  print("compare_apexes debug start=================================")
+  #print("compare_apexes debug start=================================")
   #print("pointsInc")
   #print(pointsInc)
   result = {seriesAxis1:[], seriesAxis2:[]}
@@ -683,14 +683,14 @@ def compare_apexes(series, pointsInc, seriesAxis1="X", seriesAxis2="Y", pointsAx
   for apex in apexes:
     for point in points:
       if ((axis1B > abs(apex[0] - point[0])) and (axis2B > abs(apex[1] - point[1]))):
-        print(apex, point, axis1B, abs(round(apex[0] - point[0], 3)), axis2B, abs(round(apex[1] - point[1], 3)), "------------------")
+        #print(apex, point, axis1B, abs(round(apex[0] - point[0], 3)), axis2B, abs(round(apex[1] - point[1], 3)), "------------------")
         if apex in apexMapping:
           apexMapping[apex].append(point)
         else:
           apexMapping[apex] = [point]
       else:
-        print(apex, point, axis1B, abs(round(apex[0] - point[0], 3)), axis2B, abs(round(apex[1] - point[1], 3)))
-
+        #print(apex, point, axis1B, abs(round(apex[0] - point[0], 3)), axis2B, abs(round(apex[1] - point[1], 3)))
+        pass
   
   
   
@@ -736,18 +736,18 @@ def compare_apexes(series, pointsInc, seriesAxis1="X", seriesAxis2="Y", pointsAx
   #print(result)
   print(series["marked"])
   
-  print("compare_apexes debug stop =================================")
+  #print("compare_apexes debug stop =================================")
   return series, pointsInc, result
 
 #TODO: rewrite line formatting to be more powerful
 def dump_to_file(series, fileName, lineFormat="x y"):
-  print("dumping", series["name"], "to", fileName)
+  print("dumping", series["name"], "to", fileName, ":")
   try:
     os.system("rm "+ fileName)
   except Exception:
     pass
   with open(fileName, 'a') as f:
-    print("file opened")
+    print("\tfile opened")
     f.write(series["name"])
     f.write("\n")
     lineFormat = lineFormat.upper()
@@ -758,21 +758,198 @@ def dump_to_file(series, fileName, lineFormat="x y"):
     for i in range(min([len(row) for row in dataRows])):
       line = ''
       for row in dataRows:
-        #line += str(row[i] + round((random.random() - random.random()), 10)) #outputs noizy data for some fun
-        line += str(row[i])
+        line += str(row[i] + round((random.random() - random.random()), 10)) #outputs noizy data for some fun
+        #line += str(row[i])
         line += ' '
       line += '\n'
       f.write(line)
-  print("done")
+  print("\tdone")
+
+def settings_check(settings):
+  """this function checks tasks for syntax missing and restore missings to default values"""
+  for seriesI in range(len(settings)):
+    series = settings[seriesI]
+    if "chart settings" in series:
+      series = {"chart settings":series["chart settings"]} #cleanup dictionary (flushes all but "chart settings")
+      series = plot_settings(series)
+      settings[seriesI] = series
+    elif "filename" in series:
+      series = series_settings_check(series)
+      settings[seriesI] = series
+  return settings
+
+def series_settings_check(series, isFile=True):
+  if isFile:
+    try:
+      if not (type(series["filename"]) is str):
+        print('Config file error\n Series "filename" should be a string')
+    except KeyError:
+      print('Config file error\n Nessesary field "filename" not found')
+      exit()
+    filename = series["filename"]
+    if "format" in series:
+      if not (type(series["format"]) is dict):
+        print('Config file error\n Series file "format" should be a dictionary')
+      else:
+        try:
+          if not (type(series["format"]["skip_strings"]) is int):
+            print("Config file error:", name, '\n "format/skip_strings" should be an integer')
+          elif series["format"]["skip_strings"] < 0:
+            print("Config file error:", name, '\n "format/skip_strings" should be non-negative')
+        except KeyError:
+          print('Config file error\n Nessesary field "format/skip_strings" not found')
+          exit()
+        try:
+          if not (type(series["format"]["string"]) is str):
+            print("Config file error:", name, '\n "format/string" should be a string')
+        except KeyError:
+          print('Config file error\n Nessesary field "format/string" not found')
+          exit()
+    else:
+      print('Config file error\n Nessesary field "format" not found')
+      exit()
+  try:
+    if not (type(series["name"]) is str):
+      print('Config file error\n Series "name" should be a string')
+  except KeyError:
+    print('Config file error\n Nessesary field "name" not found')
+    exit() 
+  name = series["name"]
+  try:
+    if not (type(series["tasks"]) is list):
+      print('Config file error\n Series "tasks" should be a list')
+    else:
+      series["tasks"] = tasks_check(series["tasks"])
+  except KeyError:
+    print('Config file error\n Nessesary field "tasks" not found')
+    exit() 
+  return series
+
+def tasks_check(tasks, depth=0):
+  '''This function check tasks fields. Missing fields are added and filled by default values.
+  Returns fixed tasks or raises exception
+  '''
+  #TODO: add user alerts
+  '''taskTemplate = {
+  }
+  '''
+  taskTemplate = {
+    "normalise":{
+      "min":0.0,
+      "max":1.0,
+      "axis":["Y", "X"]
+    },
+    "sort":{
+      "axis":["X", "Y"],
+      "direction":["up", "down"]
+    },
+    "cut":{
+      "axis":["X", "Y"],
+      "left":0.0,
+      "right":1.0
+    },
+    "find peaks advanced":{
+      "axis1":["X", "Y"],
+      "axis2":["Y", "X"],
+      "peaks tasks":"tasks",
+      "der1Tasks":"tasks",
+      "der2Tasks":"tasks",
+      "int1Tasks":"tasks",
+      "int2Tasks":"tasks",
+      "minimal level":0.0,
+      "minimal level sign":["+", "-"],
+      "minimal level trigger":["peakY", "peakX" "der2", "der1", "int1", "int2", "X", "Y", "width"],
+      "minimal peak width":0.0,
+      "result peak type":["Y", "X", "der1", "der2", "int1", "int2", "peakX", "peakY", "width"],
+      "result peak function":["min", "max"]
+    },
+    "find peaks trivial":{
+      "axis1":["X", "Y"],
+      "axis2":["Y", "X"],
+      "apexes tasks":"tasks",
+      "peaks tasks":"tasks",
+      "level tasks":"tasks",
+      "trigger value":0.0,
+      "trigger type":["absolute", "relative"],
+      "trigger sign":"+",
+      "trigger function":["median", "average"],
+      "trigger function window":100,
+      "trigger function tune":0.0,
+      "minimal peak width":1.0,
+      "minimal gap between peaks":1.0,
+      "apex function axis1":["center", "apex location", "median", "left", "right"],
+      "apex function axis2":["max", "min", "median", "width", "center"]
+    },
+    "annotate":{
+      "axis1":["X", "Y"],
+      "axis2":["Y", "X"],
+      "text":"",
+      "color":"black",
+      "label angle": -45,
+      "font size": 9,
+      "aX":0,
+      "aY":10
+    },
+    "compare points":{
+      "series axis1":["X", "Y"],
+      "series axis2":["Y", "X"],
+      "points axis1":["X", "Y"],
+      "points axis2":["Y", "X"],
+      "axis1 scope": 0.5,
+      "axis2 scope": 0.5,
+      "result tasks":"tasks",
+      "main points":[True, False],
+      "multiple points":[False, True],
+      "sticky points":[True, False]
+    },
+    "dump":{
+      "file name":"dump.txt",
+      "format":"X Y"
+    }
+  }
+  
+  
+  for taskI in range(len(tasks)):
+    task = tasks[taskI]
+    #print(task, '\n')
+    for taskName, taskFields in taskTemplate.items():
+      if taskName in task:
+        for field in taskFields:
+          #print(json.dumps(task, indent=2))
+          if not field in task[taskName]: #if field is missing
+            if taskFields[field] == 'tasks':
+              task[taskName][field] = []
+              print('added missing field "'+ field +'" at', "'" + str([key for key in task.keys()][0]) +"'", '. Default value is', task[taskName][field])
+            elif type(taskFields[field]) in (str, int, float):
+              task[taskName][field] = taskFields[field]
+              print('added missing field "'+ field +'" at', "'" + str([key for key in task.keys()][0]) +"'", '. Default value is', task[taskName][field])
+            elif type(taskFields[field]) in (list, tuple):
+              task[taskName][field] = taskFields[field][0]            
+              print('added missing field "'+ field +'" at', "'" + str([key for key in task.keys()][0]) +"'", '. Default value is', task[taskName][field])
+          else: #if field existing
+            if taskFields[field] == 'tasks':
+              print("recursive (depth = " + str(depth + 1)+ ") checking", '"'+ taskName +'"[' + field + ']')
+              task[taskName][field] = tasks_check(task[taskName][field], depth=(depth+1))
+            elif ((type(taskFields[field]) is not type(task[taskName][field])) and (not (type(taskFields[field]) in (list, tuple)))):
+              print('fixed wrong parameter type at "' + taskName + '"[' + field + ']', 'from', '"' + str(task[taskName][field]) + '"', 'to', '"' + str(taskFields[field]) + '"')
+              task[taskName][field] = taskFields[field]
+            elif type(taskFields[field]) in (list, tuple):
+              if task[taskName][field] not in taskFields[field]:
+                print('parameter' , '"' + str(task[taskName][field]) + '"', 'is not allowed at', '"' + taskName+ '"[' + field + '].', 'Changed from', '"' + str(task[taskName][field]) + '"', 'to', '"' + str(taskFields[field][0]) + '"')
+                task[taskName][field] = taskFields[field][0]
+    tasks[taskI] = task
+  return tasks
 
 
 def plot_settings(settings):
-  types = {
-    "int":[],
-    "bool":[],
-    "float":[],
-    "str":[]
+  types = { #TODO: fill it by field names
+    "int":["title font size", "font size", "xaxis title font size", "yaxis title font size", "chart width", "chart height", "xaxis line width", "yaxis line width", ],
+    "bool":["showlegend", "chart autosize", "xaxis showline", "yaxis showline"],
+    "float":["title x", "title y", "legend y", "legend x"],
+    "str":["title", "title xanchor", "title yanchor", "xaxis title", "yaxis title", "plot background", "xaxis line color", "xaxis ticks location", "xaxis color", "yaxis line color", "yaxis ticks location", "yaxis color", "legend yanchor", "legend xanchor"]
   }
+  settings = settings["chart settings"]
+  abort = False
   for t, fields in types.items():
     for field in fields:
       if field in settings:
@@ -780,18 +957,26 @@ def plot_settings(settings):
           if not (type(settings[field]) is int):
             path = "'chart settings/" + field + "'"
             print("Config file error\n Please check type of section:", path, "it should be int(..., -1, 0, 1, ...)")
+            abort = True
         elif t == "bool":
           if not (type(settings[field]) is bool):
             path = "'chart settings/" + field + "'"
             print("Config file error\n Please check type of section:", path, "it should be bool (true, false)")
+            abort = True
         elif t == "float":
           if not (type(settings[field]) is float):
             path = "'chart settings/" + field + "'"
             print("Config file error\n Please check type of section:", path, "it should be float (..., -1, 0, 1, ..., -0.1, 0.0, 10.3, ...)")
+            abort = True
         elif t == "str":
           if not (type(settings[field]) is str):
             path = "'chart settings/" + field + "'"
             print("Config file error\n Please check type of section:", path, 'it should be any string ("...")')
+            abort = True
+  if abort:
+    print("Aborting.")
+    exit()
+  return {"chart settings":settings}
 
 
 
@@ -803,8 +988,17 @@ def main():
     return -1
   tasks = json.load(taskFile)
   taskFile.close()
-  tasks = tasks_check(tasks)
+  if False: #switch for debug purposes
+    tasksBackup1 = open("back1_"+ argv[1], 'w')
+    json.dump(tasks, tasksBackup1, indent=2, separators=(',', ':'))
+    tasksBackup1.close()
+  
+    tasks = settings_check(tasks)
+    print(json.dumps(tasks, indent=2))
 
+    tasksBackup2 = open("back2_"+ argv[1], 'w')
+    json.dump(tasks, tasksBackup2, indent=2, separators=(',', ':'))
+    tasksBackup2.close()
   #print(tasks)
   dataset = []
   for series in tasks:
@@ -880,8 +1074,8 @@ def main():
                         aX=tmpTask["aX"],
                         aY=tmpTask["aY"]
                      )
-      elif "compare_points" in task:
-        tmpTask = task["compare_points"]
+      elif "compare points" in task:
+        tmpTask = task["compare points"]
         pointSeries = {"X":[], "Y":[], "name":'', "tasks":[]}
         for ser in dataset:
           if ser["name"] == tmpTask["points name"]:
@@ -916,7 +1110,7 @@ def main():
 
 main()
 
-#TODO: add checking of incoming json config. All missed fields should be filled by default values. User should be warned of all invalid fields.
+#DONE: add checking of incoming json config. All missed fields should be filled by default values. User should be warned of all invalid fields.
 #TODO: add immutability of incoming data to every function
 #TODO: add mark stacking function. For example: if there are many marks at some site, move up some of them
 #DONE: add symbol styling in "plot" function
