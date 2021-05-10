@@ -765,6 +765,13 @@ def dump_to_file(series, fileName, lineFormat="x y"):
       f.write(line)
   print("\tdone")
 
+def copy(series, name='', tasks=[]):
+  series = series.copy()
+  series["name"] = name
+  series["tasks"] = tasks
+  return series
+
+
 def settings_check(settings):
   """this function checks tasks for syntax missing and restore missings to default values"""
   for seriesI in range(len(settings)):
@@ -905,6 +912,16 @@ def tasks_check(tasks, depth=0):
     "dump":{
       "file name":"dump.txt",
       "format":"X Y"
+    },
+    "copy":{
+      "new name":"Name me, please!",
+      "tasks":"tasks"
+    },
+    "delete":{
+      "name":"Name me, please!"
+    },
+    "rename":{
+      "new name":"Name me, please!"
     }
   }
   
@@ -1100,6 +1117,20 @@ def main():
       elif "dump" in task:
         tmpTask = task["dump"]
         dump_to_file(series, tmpTask["file name"], lineFormat=tmpTask["format"])
+      elif "copy" in task:
+        if not (task["copy"]["new name"] in [s["name"] for s in dataset]):
+          dataset.append = copy(series, name=task["copy"]["new name"], tasks=task["copy"]["tasks"])
+        else:
+          print 
+      elif "delete" in task:
+        for s in dataset:
+          if s["name"] == task["delete"]["name"]
+            dataset.remove(s)
+            break
+        else:
+          print('Tried to delete "' + name + '", but it is not found. Continuing ...')
+      elif "rename" in task:
+        dataset[sIndex]["name"] = task["rename"]["new name"]
       elif "plot" in task:
         plot(chart, series, task)
   chart = annotations_apply(chart, labels)
@@ -1109,13 +1140,5 @@ def main():
 
 
 main()
-
-#DONE: add checking of incoming json config. All missed fields should be filled by default values. User should be warned of all invalid fields.
-#TODO: add immutability of incoming data to every function
-#TODO: add mark stacking function. For example: if there are many marks at some site, move up some of them
-#DONE: add symbol styling in "plot" function
-#TODO: add "delete" function. It should delete the given points from series.
-#TODO: add queue customisation in config (or smart queue manager). Now program may try to access unfinished/nonexisting "series"
-#TODO: add check for same namings of different series
 
 exit()
