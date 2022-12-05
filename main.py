@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#/usr/bin/python3
 import json
 import plotly.graph_objs as go
 from sys import argv
@@ -43,23 +43,34 @@ def file_import(filename, fileFormat, attrs):
   buff["tasks"] = attrs["tasks"]
   f = open(filename, "r")
   skipI = fileFormat["skip_strings"]
+  try:
+    splitter = fileFormat["splitter"]
+  except KeyError:
+    splitter = ""
   while skipI > 0:
     f.readline()
     skipI -= 1
   line = f.readline()
   line = line.strip()
   while line != '':
-    line_parsed = line_parse(line, fileFormat["string"])
+    if splitter != "":
+      line_parsed = line_parse(line, fileFormat["string"], splitter=splitter)
+    else:
+      line_parsed = line_parse(line, fileFormat["string"])
     buff["X"].extend(line_parsed["X"])
     buff["Y"].extend(line_parsed["Y"])
+    #print(line_parsed)
     line = f.readline()
     line = line.strip()
   f.close()
   return buff
 
-def line_parse(line, lineFormat):
+def line_parse(line, lineFormat, splitter=""):
   res = {"X":[], "Y":[]}
-  line = line.split()
+  if splitter != "":
+    line = line.split(splitter)
+  else:
+    line = line.split()
   lineFormat = lineFormat.split()
   '''
   if len(line) == len(lineFormat):
@@ -90,7 +101,8 @@ def normalise(series, axis, minR, maxR):
     if minV > value:
       minV = value
   for i in range(len(series[axis])):
-    series[axis][i] = ((series[axis][i] - minV) / (maxV - minV))*(maxR - minR) + minR
+    if (abs(maxV - minV) >= 1e-10):
+      series[axis][i] = ((series[axis][i] - minV) / (maxV - minV))*(maxR - minR) + minR
   return series
 
 def cut(series, axis, left, right):
@@ -158,7 +170,7 @@ def sort(series, axis, order): #simple bubble sort
     
 
 
-def derivative(series, axis1, axis2, noShift=False):
+def derivative_adv(series, axis1, axis2, noShift=False):
   '''returns "series" with a result of derivation of axis2 by axis1
   noShift==True means that in a result X is a center of an gap with df/dx == value
   else it means that in a result X is a left border of a gap'''
@@ -180,7 +192,7 @@ def derivative(series, axis1, axis2, noShift=False):
     result[axis1].append(x[-1])
   #print(result)
   #print("stop derivative debug======================")
-  return result 
+  return result
 
 def integrate(series, axis1, axis2, noShift=False):
   '''returns "series" with a result of integration of axis2 by axis1'''
@@ -225,9 +237,9 @@ def find_peaks_advanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2T
   peaks = {"axes":series["axes"], "tasks":peaksTasks, "name":(series["name"]+"_advanced_peaks")}
   series[axis1] = series[axis1] #TODO: what does this line?
   series[axis2] = series[axis2] #TODO: what does this line?
-  der1 = derivative(series, axis1, axis2)
+  der1 = derivative_adv(series, axis1, axis2)
   der1.update({"axes":series["axes"], "tasks":der1Tasks, "name":(series["name"] + "_der1")})
-  der2 = derivative(der1,  axis1, axis2)
+  der2 = derivative_adv(der1,  axis1, axis2)
   der2.update({"axes":series["axes"], "tasks":der2Tasks, "name":(series["name"] + "_der2")})
   
   #look for der2 zero crossings (double: up/down -- down/up) then integrate it twice between two zero crossings
@@ -236,7 +248,8 @@ def find_peaks_advanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2T
   for i in range(len(der2[axis2]) - 1):
     prev = der2[axis2][i]
     curr = der2[axis2][i + 1]
-    if prev <= -0.0 and curr >= 0.0:
+    threshold = 0.0
+    if prev <= -1*threshold and curr >= threshold:
       zeroCrosses["i"].append(i + 1) # + 1 is nessesary due to: result should include only under-zero part of der2. Otherwise the result will include one previous point of der2
       zeroCrosses["type"].append(1)
     if prev >= 0.0 and curr <= -0.0:
@@ -263,38 +276,68 @@ def find_peaks_advanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2T
   noMorePeaks = False
   while not noMorePeaks:
     i = 0
+    if zeroCrosses["type"] == []:
+      noMorePeaks = True
+      break
+    #try:
+    #    tmp_var_1 = bool(zeroCrosses["type"][i] != 1)
+    #except IndexError:
+    #    print("AAAAAAAAA")
+    #    print(i)
+    #    print(zeroCrosses)
+    #    raise IndexError
+    #tmp_var_1 = bool(zeroCrosses["type"][i] != 1)
     while zeroCrosses["type"][i] != 1:
       i += 1
-      #print(zeroCrosses)
+      #print(zeroCrosses, i)
       #print("noMorePeaks:", noMorePeaks)
       #print("length:", len(zeroCrosses["i"]), "  i =", i)
+      #print("length type:", len(zeroCrosses["type"]), "  i =", i)
       if i >= (len(zeroCrosses["type"]) - 1):
         noMorePeaks = True
         #print("break")
         break
+      #try:
+      #  tmp_var_1 = bool(zeroCrosses["type"][i] != 1)
+      #except IndexError:
+      #  print("BBBBBBBBB")
+      #  print(i)
+      #  print(zeroCrosses["type"])
+      #  raise IndexError
     #This is not actual because unmatching zero crosses deleted some lines ago
     #if i == 0:
     #  zeroCrosses["type"].pop(0)
     #  zeroCrosses["i"].pop(0)
     #  continue
-    leftI = zeroCrosses["i"][i-1]
-    rightI = zeroCrosses["i"][i]
+    try: #handle nonmatching zeroCrosses (fuck them off)
+      if i != 0:
+        leftI = zeroCrosses["i"][i-1]
+        rightI = zeroCrosses["i"][i]
+        #print(i, [leftI, rightI])
     
-    zeroCrosses["i"].pop(i-1)
-    zeroCrosses["type"].pop(i-1)
-    zeroCrosses["i"].pop(i-1)
-    zeroCrosses["type"].pop(i-1)
+        zeroCrosses["i"].pop(i-1)
+        zeroCrosses["type"].pop(i-1)
+        zeroCrosses["i"].pop(i-1)
+        zeroCrosses["type"].pop(i-1)
+        if (rightI - leftI > 3):
     
-    peaks["peaks"].append({axis1:series[axis1][leftI:rightI], axis2:series[axis2][leftI:rightI], "der2":der2[axis2][leftI:rightI], "der1":der1[axis2][leftI:rightI], "peak"+axis1:0.0, "peak"+axis2:0.0, "width":(series[axis1][rightI] - series[axis1][leftI])})
+          peaks["peaks"].append({axis1:series[axis1][leftI:rightI], axis2:series[axis2][leftI:rightI], "der2":der2[axis2][leftI:rightI], "der1":der1[axis2][leftI:rightI], "peak"+axis1:0.0, "peak"+axis2:0.0, "width":(series[axis1][rightI] - series[axis1][leftI])})
+      else:
+        zeroCrosses["i"].pop(i-1)
+        zeroCrosses["type"].pop(i-1)
+    except IndexError:
+      noMorePeaks = True
   
 
 
   for peakI in range(len(peaks["peaks"])):
     peak = peaks["peaks"][peakI]
+    #print(peaks)
     
     #integrate here 
     int1 = integrate({axis1:peak[axis1], axis2:peak["der2"]}, axis1, axis2)
     int2 = integrate({axis1:peak[axis1], axis2:int1[axis2]}, axis1, axis2)
+    int3 = integrate({axis1:peak[axis1], axis2:int2[axis2]}, axis1, axis2)
 
     #approximate peak location
     
@@ -302,9 +345,10 @@ def find_peaks_advanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2T
     for i in range(len(int1[axis2])- 1):
       a = int1[axis2][i]
       b = int1[axis2][i + 1]
-      if (a >= 0.0) and (b <= 0.0):
+      if (a > 0.0) and (b < 0.0):
         peakAxis1Found = True
-        peak["peak" + axis1] = peak[axis1][i] + (peak[axis1][i + 1] - peak[axis1][i])*(a/(a + b))
+        print(a,b, i)
+        peak["peak" + axis1] = peak[axis1][i] + (peak[axis1][i + 1] - peak[axis1][i])*(a/(a - b))
     if not peakAxis1Found:
       peak["peak" + axis1] = peak[axis1][0] + (peak[axis1][-1] - peak[axis1][0])/2.0
     
@@ -313,6 +357,7 @@ def find_peaks_advanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2T
 
     peak["int1"] = int1[axis2]
     peak["int2"] = int2[axis2]
+    peak["int3"] = int3[axis2]
 
     peaks["peaks"][peakI] = peak
 
@@ -355,6 +400,8 @@ def find_peaks_advanced(series, axis1, axis2, peaksTasks=[], der1Tasks=[], der2T
         resultPeaks[axis2].append(max(peak[axis2Type]))
     if axis2Type in ("peakX", "peakY", "width"): 
       resultPeaks[axis2].append(peak[axis2Type])
+    if axis2Type == "area":
+      resultPeaks[axis2].append(peak["int3"][-1])
 
   return (resultPeaks, der1, der2)
 
@@ -501,13 +548,21 @@ def find_peaks_trivial(series, axis1, axis2, apexesTasks=[], peaksTasks=[], leve
     if dx > minimalGap:
       rightI = I
       peakStopped = True
-    if x - peaksPossible["X"][leftI] < minimalWidth:
-      peakStopped = False
-
+    if I == (len(peaksPossible["F"]) - 1): 
+      #print("aaa", peakStarted)
+      rightI = I
+      peakStopped = True
+    #if x - peaksPossible["X"][leftI] < minimalWidth:
+    #  print("minimal width")
+    #  peakStopped = False
     if peakStopped:
+      #print(peaksPossible["X"][leftI], peaksPossible["X"][rightI-1])
       peaks.append({"X":peaksPossible["X"][leftI:rightI], "F":peaksPossible["F"][leftI:rightI]})
+      #print(peaks[-1])
       peakStopped = False
-      peakStarted = False
+      peakStarted = True
+      leftI = I
+
 
   #find the apex location
   for I in range(len(peaks)):
@@ -546,7 +601,8 @@ def find_peaks_trivial(series, axis1, axis2, apexesTasks=[], peaksTasks=[], leve
     peak["apexX"] = apexX
     peak["apexF"] = apexF
     peaks[I] = peak
-  
+  if not "axes" in series:
+    series["axes"] = (axis1, axis2)
   apexes = { axis1:[], axis2:[],"axes":series["axes"], "tasks":apexesTasks, "name":(series["name"]+"_apexes")}
   levels = {axis1:X, axis2:L, "axes":series["axes"], "tasks": levelTasks, "name":(series["name"]+"_level")}
   peaksResult = {axis1:peaksPossible["X"], axis2:peaksPossible["F"], "axes":series["axes"], "tasks": peaksTasks, "name":(series["name"]+"_peaks")}
@@ -554,29 +610,132 @@ def find_peaks_trivial(series, axis1, axis2, apexesTasks=[], peaksTasks=[], leve
   for peak in peaks:
     apexes[axis1].append(peak["apexX"])
     apexes[axis2].append(peak["apexF"])
-  
   #print("find_peaks_trivial debug stop  ================================")
   return (levels, peaksResult, apexes)
 
+def denoise(series, axis1="X", axis2="Y", function="median", windowPoints=50, windowArgument=0, functionTune1=0.0, functionTune2=0.0, name="_denoised"):
+  #result = {axis1:[x for x in series[axis1]], axis2:[], "tasks":tasks, "name":name} #forks the data
+  result = [] #in-place job
+  X = series[axis1]
+  F = series[axis2]
+  for I in range(len(X)): #I is main iterator here
+    xWindow = []
+    fWindow = []
+    if windowArgument == 0:
+      halfWindow = windowPoints // 2
+
+    #choose windows
+    #approximation: if part of the window protrudes from a possible data series -- protruding part is filled by a mirrored part of data series from this side
+      leftI = I - halfWindow
+      rightI = I + halfWindow
+    else:
+      leftI=I
+      rightI=I
+      currArg = X[I]
+      while abs(currArg - X[leftI]) <= windowArgument:
+        leftI -= 1
+        if leftI < 0:
+          break
+      while abs(X[rightI] - currArg) <= windowArgument:
+        rightI += 1
+        if rightI + 1 >= len(X):
+          break
+    if leftI < 0:
+      xWindow = X[abs(leftI) - 1:: -1]
+      fWindow = F[abs(leftI) - 1:: -1]
+      xWindow.extend(X[:I])
+      fWindow.extend(F[:I])
+    else:
+      xWindow.extend(X[leftI:I])
+      fWindow.extend(F[leftI:I])
+
+    if rightI > len(X):
+      xWindow.extend(X[I:])
+      fWindow.extend(F[I:])
+      xWindow.extend(X[: len(X) -1 - (rightI - len(X)) :-1])
+      fWindow.extend(F[: len(F) -1 - (rightI - len(F)) :-1])
+    else:
+      xWindow.extend(X[I:rightI])
+      fWindow.extend(F[I:rightI])
+    x = X[I]
+    f = F[I]
+
+    if len(fWindow) != windowPoints:
+      print('"find peaks trivial" alert')
+      print("\tlen(fWindow):",len(fWindow))
+      print("\t from", leftI, "to", rightI)
+
+    if function == "median":
+      level = median(fWindow)
+    elif function == "average":
+      level = average(fWindow)
+    elif function == "weighted":
+      level = weight(xWindow, fWindow, functionTune1)
+    result.append(level)
+  for i in range(len(result)):
+    series[axis2][i] = result[i]
+
+  return series
+  
+def weight(X, Y, distancePower):
+  """returns triangle-weighted average"""
+  result = 0
+  #search for the center of X
+  tmp = X.copy()
+  tmp.sort()
+  center = tmp[len(tmp)//2]
+  diameter = abs(tmp[0] - tmp[-1])/2
+  if diameter == 0:
+    for y in Y:
+      result += y
+    result /= len(Y)
+  else:
+    for (x,y) in zip(X,Y):
+      #result += y*1/((2*3.14159265)**0.5)*2.71828183**(-0.5*abs(x-center)**2)
+      result += y*(2 - 2*abs(x - center)/diameter)/len(Y)
+  return result
+
+def derivative(series, axis1="X", axis2="Y", tasks=[]):
+  """forks series and caculate it`s first derivative"""
+  dY = []
+  dX = []
+  X = series[axis1]
+  Y = series[axis2]
+  for I in range(1, len(X)):
+    if (X[I] - X[I-1])!=0:
+      #dX.append((X[I] + X[I-1])/2)
+      dX.append(X[I])
+      dY.append((Y[I] - Y[I-1])/(X[I] - X[I-1]))
+  result = {axis1:dX, axis2:dY, "tasks":tasks, "name":series["name"]+"_derivative", }
+  return [result]
+
+
 def chart_style(chart, style):
+  if style["chart autosize"]:
+    chart.update_layout(
+      autosize=True
+    )
+  else:
+    chart.update_layout(
+      autosize=False,
+      title_x=style["title x"],
+      title_y=style["title y"],
+      width=style["chart width"],
+      height=style["chart height"],
+      margin=style["margins"]
+    )
   chart.update_layout(
     title_font_size=style["title font size"],
     title=style["title"],
     title_xanchor=style["title xanchor"],
     title_yanchor=style["title yanchor"],
-    title_x=style["title x"],
-    title_y=style["title y"],
     font_size=style["font size"],
     showlegend=style["showlegend"],
     xaxis_title=style["xaxis title"],
     xaxis_title_font_size=style["xaxis title font size"],
     yaxis_title=style["yaxis title"],
     yaxis_title_font_size=style["yaxis title font size"],
-    autosize=style["chart autosize"],
-    width=style["chart width"],
-    height=style["chart height"],
     plot_bgcolor=style["plot background"],
-    margin=style["margins"],
     xaxis={
       "showline":style["xaxis showline"],
       "linewidth":style["xaxis line width"],
@@ -598,6 +757,24 @@ def chart_style(chart, style):
       "x":style["legend x"]
     }
   )
+
+def draw_verticals(marks, series, axis1="X", axis2="Y", color="black", text="X", fontSize=10, textAngle=0, aBottom=True, Bottom=0, aTop=True, Top=1):
+  minY = min(series[axis2])
+  maxY = max(series[axis2])
+  for x in series[axis1]:
+    annotation = {}
+    annotation["font"] = {"size":fontSize, "color":color}
+    annotation["arrowcolor"] = color
+    annotation["text"] = x
+    annotation["textangle"] = textAngle
+    annotation["x"] = x
+    annotation["y"] = minY
+    annotation["ax"] = x
+    annotation["ay"] = maxY
+    annotation["xanchor"] = "left"
+    print(annotation)
+    marks.append[annotation]
+  return marks 
 
 
 def annotate(toAnnotate, series, axis1, axis2, text="X", color="black" , angle=0, fontSize=10, aX=0, aY=10):
@@ -664,9 +841,9 @@ def annotations_apply(chart, signs):
 
 def compare_apexes(series, pointsInc, seriesAxis1="X", seriesAxis2="Y", pointsAxis1="X", pointsAxis2="Y", axis1B=-1, axis2B=1.0, resultTasks=[], mainPoints=False, multiPointing=False, stickyPoints=False):
   """compares(overlaps) two incoming data series"""
-  #print("compare_apexes debug start=================================")
-  #print("pointsInc")
-  #print(pointsInc)
+  print("compare_apexes debug start=================================")
+  print("pointsInc")
+  print(pointsInc)
   result = {seriesAxis1:[], seriesAxis2:[]}
  
   roundFactor = 3
@@ -683,13 +860,13 @@ def compare_apexes(series, pointsInc, seriesAxis1="X", seriesAxis2="Y", pointsAx
   for apex in apexes:
     for point in points:
       if ((axis1B > abs(apex[0] - point[0])) and (axis2B > abs(apex[1] - point[1]))):
-        #print(apex, point, axis1B, abs(round(apex[0] - point[0], 3)), axis2B, abs(round(apex[1] - point[1], 3)), "------------------")
+        print(apex, point, axis1B, abs(round(apex[0] - point[0], 3)), axis2B, abs(round(apex[1] - point[1], 3)), "------------------")
         if apex in apexMapping:
           apexMapping[apex].append(point)
         else:
           apexMapping[apex] = [point]
       else:
-        #print(apex, point, axis1B, abs(round(apex[0] - point[0], 3)), axis2B, abs(round(apex[1] - point[1], 3)))
+        print(apex, point, axis1B, abs(round(apex[0] - point[0], 3)), axis2B, abs(round(apex[1] - point[1], 3)))
         pass
   
   
@@ -732,11 +909,11 @@ def compare_apexes(series, pointsInc, seriesAxis1="X", seriesAxis2="Y", pointsAx
   result["tasks"] = resultTasks
   result["name"] = series["name"] + "&" + pointsInc["name"] 
 
-  #print("result:")
-  #print(result)
+  print("result:")
+  print(result)
   print(series["marked"])
   
-  #print("compare_apexes debug stop =================================")
+  print("compare_apexes debug stop =================================")
   return series, pointsInc, result
 
 #TODO: rewrite line formatting to be more powerful
@@ -770,7 +947,6 @@ def copy(series, name='', tasks=[]):
   series["name"] = name
   series["tasks"] = tasks
   return series
-
 
 def settings_check(settings):
   """this function checks tasks for syntax missing and restore missings to default values"""
@@ -957,7 +1133,6 @@ def tasks_check(tasks, depth=0):
     tasks[taskI] = task
   return tasks
 
-
 def plot_settings(settings):
   types = { #TODO: fill it by field names
     "int":["title font size", "font size", "xaxis title font size", "yaxis title font size", "chart width", "chart height", "xaxis line width", "yaxis line width", ],
@@ -995,7 +1170,7 @@ def plot_settings(settings):
     exit()
   return {"chart settings":settings}
 
-
+  
 
 def main():
   try:
@@ -1039,6 +1214,13 @@ def main():
         dataset[sIndex] = sort(series, task["sort"]["axis"], task["sort"]["direction"])
       elif "cut" in task:
         dataset[sIndex] = cut(series, task["cut"]["axis"], task["cut"]["left"], task["cut"]["right"])
+      elif "derivative" in task:
+        dataset.extend(derivative(
+                                  series, 
+                                  axis1=task["derivative"]["axis1"],
+                                  axis2=task["derivative"]["axis2"],
+                                  tasks=task["derivative"]["tasks"],
+                                  ))
       elif "find peaks advanced" in task: #this line is broken. Delete first '1' in a string
         tmpTask = task["find peaks advanced"]
         dataset.extend(find_peaks_advanced(
@@ -1124,13 +1306,23 @@ def main():
           print 
       elif "delete" in task:
         for s in dataset:
-          if s["name"] == task["delete"]["name"]
+          if s["name"] == task["delete"]["name"]:
             dataset.remove(s)
             break
         else:
           print('Tried to delete "' + name + '", but it is not found. Continuing ...')
       elif "rename" in task:
         dataset[sIndex]["name"] = task["rename"]["new name"]
+      elif "denoise" in task:
+        dataset[sIndex] = denoise(series, 
+                                        axis1=task["denoise"]["axis1"],
+                                        axis2=task["denoise"]["axis2"],
+                                        windowPoints=task["denoise"]["window"],
+                                        functionTune1=task["denoise"]["tune1"],
+                                        functionTune2=task["denoise"]["tune2"],
+                                        function=task["denoise"]["function"],
+                                        windowArgument=task["denoise"]["window argument"]
+                                        )
       elif "plot" in task:
         plot(chart, series, task)
   chart = annotations_apply(chart, labels)
@@ -1138,7 +1330,21 @@ def main():
   chart.show()
 
 
+if __name__ == "__main__":
+  main()
 
-main()
+#DONE: add checking of incoming json config. All missed fields should be filled by default values. User should be warned of all invalid fields.
+#TODO: add immutability of incoming data to every function
+#TODO: add mark stacking function. For example: if there are many marks at some site, move up some of them
+#DONE: add symbol styling in "plot" function
+#TODO: add "delete" function. It should delete the given points from series.
+#TODO: add queue customisation in config (or smart queue manager). Now program may try to access unfinished/nonexisting "series"
+#   all pairs of tasks and series are in main queue.
+#   tasks to process are taken from the top of queue
+#   if some task tries to use non-existing series it is moved to the bottom of queue with it`s following(recognised by names) tasks
+# implementation details:
+#   "rename" tasks are moved to the end of queue by default at start
+#TODO: add check for same namings of different series
 
-exit()
+#мысль: можно задавать произвольное степенное уравнение, как пары степени и коэффициента. Например: 
+#уравнение y = Kx + B будет {"Y":{"X": {0:B, 1:K, 2:0}}, "X": {}}
